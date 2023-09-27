@@ -2,11 +2,7 @@ from bs4 import BeautifulSoup
 import numpy as np
 import urllib.request
 import re
-from google.oauth2 import service_account
 from google.cloud import storage
-
-credentials = service_account.Credentials.from_service_account_file("ds-561-project-1-fa357d14ef90.json")
-storage_client = storage.Client(project="ds-561-project-1", credentials=credentials)
                 
 def calculate_pagerank(graph_outlinks, graph_inlinks, pagerank_values):
 
@@ -35,7 +31,12 @@ def main():
 
     print("PageRank Program: ")
 
-    dir = "./generated-content/"
+    storage_client = storage.Client.create_anonymous_client()
+
+    bucket_name = "hw2-rhythm"
+    folder_name = "generated-content/"
+
+    bucket = storage_client.bucket(bucket_name)
 
     graph_outlinks = [[] for _ in range(10000)]
     graph_inlinks = [[] for _ in range(10000)]
@@ -44,25 +45,24 @@ def main():
 
     for page_id in range(10000):
         filename = str(page_id) + ".html"
-        file_dir = dir + filename
+        blob = bucket.blob(folder_name + filename)
 
-        with open(file_dir, 'r', encoding="utf-8") as file:
-            page_index = int(filename[:-5])
-            html_content = file
-            soup = BeautifulSoup(html_content, "html.parser")
+        html_content = blob.download_as_text(encoding="utf-8")
 
-            for link in soup.findAll('a'):
-                href = link.get('href')
-                linked_page_index = int(href[:-5])
+        page_index = int(filename[:-5])
+        soup = BeautifulSoup(html_content, "html.parser")
 
-                graph_outlinks[page_index].append(linked_page_index)
-                graph_inlinks[linked_page_index].append(page_index)
-                page_stats[page_index][1] += 1 #out
-                page_stats[linked_page_index][0] += 1 #in
+        for link in soup.findAll('a'):
+            href = link.get('href')
+            linked_page_index = int(href[:-5])
 
-                print(href)
-                print(page_id)
+            graph_outlinks[page_index].append(linked_page_index)
+            graph_inlinks[linked_page_index].append(page_index)
+            page_stats[page_index][1] += 1  # out
+            page_stats[linked_page_index][0] += 1  # in
 
+            print(href)
+            print(page_id)
 
     print(calculate_pagerank(graph_outlinks, graph_inlinks, pagerank_values))
 
