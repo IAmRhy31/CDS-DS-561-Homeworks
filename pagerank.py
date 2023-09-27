@@ -22,7 +22,7 @@ def calculate_pagerank(graph_outlinks, graph_inlinks, pagerank_values):
             for inlink in graph_inlinks[page_index]:
                 new_pagerank += pagerank_values[inlink] / len(graph_outlinks[inlink])
 
-            pagerank_values[page_index] = 0.15/10000 + 0.85 * (new_pagerank)
+            pagerank_values[page_index] = 0.15 + 0.85 * (new_pagerank)
 
         current_pagerank_sum = sum(pagerank_values)
         pagerank_difference = (abs(previous_pagerank_sum - current_pagerank_sum) / previous_pagerank_sum) * 100
