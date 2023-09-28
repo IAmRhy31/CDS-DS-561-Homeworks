@@ -24,7 +24,6 @@ def calculate_pagerank(graph_outlinks, graph_inlinks, pagerank_values):
         pagerank_difference = (abs(previous_pagerank_sum - current_pagerank_sum) / previous_pagerank_sum) * 100
         iteration_count = iteration_count + 1
 
-    pagerank_values.sort()
     return pagerank_values
 
 def main():
@@ -70,7 +69,7 @@ def main():
 
     print("Top 5 Pages by PageRank Score:")
     for i, (page_index, score) in enumerate(sorted_pages_by_pagerank[:5], start=1):
-        print(f"{i}. Page {page_index}: PageRank Score = {score}")
+        print(f"{i}. Page {page_index}: PageRank Score = {score}") 
     
     # Calculate metrics for incoming links
     incoming_links_counts = [stats[0] for stats in page_stats]
