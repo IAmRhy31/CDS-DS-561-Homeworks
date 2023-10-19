@@ -1,5 +1,6 @@
 #!env python3
 
+from concurrent.futures import ThreadPoolExecutor
 import http.client
 from urllib.parse import urljoin
 import argparse
@@ -134,14 +135,15 @@ def make_request(domain, port, country, ip, filename, use_ssl, ssl_context, foll
         print("Requesting ", filename, " from ", domain, port)
     conn = None
     if use_ssl:
-        conn = http.client.HTTPSConnection(domain, port, context=ssl_context)
+        conn = http.client.HTTPSConnection(domain, port, context=ssl_context, timeout=5.0)
     else:
-        conn = http.client.HTTPConnection(domain, port)
+        conn = http.client.HTTPConnection(domain, port, timeout=5.0)
 
     headers = build_headers(country, ip)
     conn.request("GET", filename, headers=headers)
     res = conn.getresponse()
     data = res.read()
+    print(res.status, res.reason)
     if verbose:
         print(res.status, res.reason)
         print(res.msg)
@@ -167,6 +169,8 @@ def main():
     parser.add_argument("-s", "--ssl", help="Use HTTPS", action="store_true")
     parser.add_argument("-v", "--verbose", help="Print the responses from the server on stdout", action="store_true")
     parser.add_argument("-r", "--random", help="Initial random seed", type=int, default=0)
+    # Added max_workers argument
+    parser.add_argument("--max_workers", help="Maximum number of concurrent workers", type=int, default=10)  
     args = parser.parse_args()
     build_country_cidrs()
     if args.random != 0:
@@ -176,16 +180,17 @@ def main():
         args.bucket = ''
     if args.webdir == 'none':
         args.webdir = ''
-    # Make the requests
-    for i in range(0,args.num_requests):
-        country = select_country()
-        cidr = select_cidr(country)
-        ip = make_ip(cidr)
-        filename = make_filename(args.bucket, args.webdir, args.index)
-        # If using the default port but have enabled ssl change the default port to be that of SSL
-        if args.ssl and args.port==80:
-            args.port=443
-        make_request(args.domain, args.port, country, ip, filename, args.ssl, ssl_context, args.follow, args.verbose)
+    # Use ThreadPoolExecutor to control concurrency
+    with ThreadPoolExecutor(max_workers=args.max_workers) as executor:
+        for i in range(0, args.num_requests):
+            country = select_country()
+            cidr = select_cidr(country)
+            ip = make_ip(cidr)
+            filename = make_filename(args.bucket, args.webdir, args.index)
+            # If using the default port but have enabled SSL, change the default port to be that of SSL
+            if args.ssl and args.port == 80:
+                args.port = 443
+            executor.submit(make_request, args.domain, args.port, country, ip, filename, args.ssl, ssl_context, args.follow, args.verbose)
 
 if __name__ == "__main__":
     main()
