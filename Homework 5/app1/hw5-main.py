@@ -111,6 +111,12 @@ def usage():
 @app.route("/<bucket_name>/<folder_name>/<file_name>", methods=['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'CONNECT', 'OPTIONS', 'TRACE', 'PATCH'])
 def serve_file(bucket_name, folder_name, file_name):
     if request.method != "GET":
+        error_data = {
+            "time_of_day": datetime.datetime.now(),
+            "requested_file": file_name,
+            "error_code": 501
+        }
+        log_error_to_db(error_data)
         logging.error("501: Method not implemented")
         return "501: Method not implemented", 501
 
