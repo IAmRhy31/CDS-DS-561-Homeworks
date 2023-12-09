@@ -1,0 +1,108 @@
+imports:
+- path: vm-creation.py
+- path: ./hw10-deploy-app1.sh
+  name: hw10-deploy-app1.sh
+- path: ./hw10-deploy-app2.sh
+  name: hw10-deploy-app2.sh
+- path: db-creation.py
+- path: pubsub_topic.jinja
+- path: service_account.jinja
+- path: vm.jinja
+
+resources:
+- name: database
+  type: db-creation.py
+  properties:
+    tier: db-n1-standard-1
+    region: us-east1
+    readReplicas: 1
+    failOver: false
+    replicationType: SYNCHRONOUS
+    databaseName: hw10-db
+    userPassword: admin
+
+- name: &SA_NAME hw10-sa
+  type: service_account.jinja
+- name: my-vm
+  type: vm.jinja
+  properties:
+    serviceAccountId: *SA_NAME
+
+- name: hw10-rhythm
+  type: storage.v1.bucket
+  properties:
+    bucket: hw10-rhythm
+    acl:
+    - kind: storage#bucketAccessControl
+      entity: "allUsers"
+      role: "READER"
+    - kind: storage#bucketAccessControl
+      entity: "allUsers"
+      role: "WRITER"
+    defaultObjectAcl:
+    - kind: storage#objectAccessControl
+      entity: "allUsers"
+      role: "READER"
+    location: US
+
+- name: hw10-topic
+  type: gcp-types/pubsub-v1:projects.topics
+  properties:
+    topic: hw10-topic
+
+- name: hw10-sub
+  type: gcp-types/pubsub-v1:projects.subscriptions
+  properties:
+    subscription: hw10-topic
+    topic: $(ref.hw10-topic.name)
+  metadata:
+    dependsOn:
+      - hw10-topic
+
+- name: hw10-vm1
+  type: vm-creation.py
+  properties:
+    zone: us-central1-b
+    metadata-from-file:
+      startup-script: hw10-deploy-app1.sh
+    machineType: https://www.googleapis.com/compute/v1/projects/ds-561-project-1/zones/us-central1-b/machineTypes/f1-micro
+    disks:
+    - deviceName: boot
+      type: PERSISTENT
+      boot: true
+      autoDelete: true
+      initializeParams:
+        sourceImage: https://www.googleapis.com/compute/v1/projects/debian-cloud/global/images/family/debian-11
+    networkInterfaces:
+    - network: https://www.googleapis.com/compute/v1/projects/ds-561-project-1/global/networks/default
+      accessConfigs:
+      - name: External NAT
+        type: ONE_TO_ONE_NAT
+
+- name: allow-http-fw
+  type: compute.v1.firewall
+  properties:
+    allowed:
+      - IPProtocol: TCP
+        ports: [80]
+    sourceRanges: [0.0.0.0/0]
+
+- name: hw10-vm2
+  type: vm-creation.py
+  properties:
+    zone: us-central1-b
+    metadata-from-file:
+      startup-script: hw10-deploy-app2.sh
+    machineType: https://www.googleapis.com/compute/v1/projects/ds-561-project-1/zones/us-central1-b/machineTypes/f1-micro
+    disks:
+    - deviceName: boot
+      type: PERSISTENT
+      boot: true
+      autoDelete: true
+      initializeParams:
+        sourceImage: https://www.googleapis.com/compute/v1/projects/debian-cloud/global/images/family/debian-11
+    networkInterfaces:
+    - network: https://www.googleapis.com/compute/v1/projects/ds-561-project-1/global/networks/default
+      accessConfigs:
+      - name: External NAT
+        type: ONE_TO_ONE_NAT
